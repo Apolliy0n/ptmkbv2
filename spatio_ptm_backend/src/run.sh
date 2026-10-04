@@ -1,0 +1,1 @@
+uvicorn app.main:app --port 8125 --host 0.0.0.0

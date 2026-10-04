@@ -1,0 +1,32 @@
+{
+  "dependencies": {
+    "@nightingale-elements/nightingale-manager": "^5.11.0",
+    "@nightingale-elements/nightingale-navigation": "^5.11.0",
+    "@nightingale-elements/nightingale-sequence": "^5.11.0",
+    "@nightingale-elements/nightingale-track": "^5.11.1",
+    "@tanstack/react-query": "^5.104.1",
+    "@tanstack/react-table": "^8.21.3",
+    "axios": "^1.20.0",
+    "molstar": "^5.12.0",
+    "next": "^16.3.8",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "zustand": "^5.0.15"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^26.6.4",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "autoprefixer": "^10.6.1",
+    "postcss": "^8.5.28",
+    "tailwindcss": "^4.3.3",
+    "typescript": "7.0.2"
+  }
+}

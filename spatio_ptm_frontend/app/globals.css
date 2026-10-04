@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+body {
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+.msp-layout-expanded,
+.msp-plugin .msp-layout-expanded {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483647 !important;
+  background: #fff;
+}
