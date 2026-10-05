@@ -5,6 +5,7 @@ import {
 } from "@tanstack/react-table";
 import InfoTooltip from "../ui/InfoTooltip";
 import { useDashboardStore } from "../../lib/store";
+import { useQuery } from "@tanstack/react-query";
 
 interface SiteDataTableProps {
   data: any[];
@@ -12,11 +13,63 @@ interface SiteDataTableProps {
   isLoading: boolean;
 }
 
+function ResidueFeatures({
+  uniprotId, position, ptmType,
+}: { uniprotId: string; position: number; ptmType?: string }) {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["residue-features", uniprotId, position, ptmType],
+    queryFn: async () => {
+      const r = await fetch(
+        `/api/v2/proteins/${uniprotId}/features?positions=${position}&ptms=${encodeURIComponent(ptmType ?? "")}`
+      );
+      if (!r.ok) throw new Error(String(r.status));
+      return r.json();
+    },
+    enabled: !!uniprotId && Number.isInteger(position),
+    staleTime: Infinity,
+    retry: 1,
+  });
+
+  if (isLoading) return <span className="text-slate-400">Computing…</span>;
+  if (isError) return <span className="text-red-500">Unavailable</span>;
+
+  const f = data?.residues?.[String(position)];
+  if (!f) return <span className="text-slate-400">N/A</span>;
+  const pr = f.propensity?.[ptmType ?? ""];
+  const low = f.plddt != null && f.plddt < 70;
+  const d = (v: any, u = "") => (v == null ? "–" : `${v}${u}`);
+
+  const rows: [string, any, string?][] = [
+    ["Hydrophobicity", d(f.window_gravy), "Mean Kyte-Doolittle value of the 21-residue window"],
+    ["Net charge", d(f.window_net_charge), "K+R minus D+E in the 21-residue window"],
+    ["Aromaticity", d(f.window_aromaticity), "Fraction of F/W/Y in the 21-residue window"],
+    ["Isoelectric point", d(f.window_pi), "pI of the 21-residue window peptide"],
+    ["Log Sum", pr ? String(pr.logSum) : "N/A", "Log-likelihood of the window under this PTM's profile; closer to 0 = more typical"],
+    ["Log-Log Product", pr ? String(pr.logLogProduct) : "N/A", "PTMKB log of product of log values"],
+    ["pLDDT", d(f.plddt) + (low ? " (low)" : ""), "AlphaFold confidence; below 70 = unreliable geometry"],
+    ["Phi / Psi / Omega", `${d(f.phi, "°")} / ${d(f.psi, "°")} / ${d(f.omega, "°")}`, "Backbone torsion angles"],
+    ["SASA", f.sasa != null ? `${f.sasa} Å² (${Math.round((f.rel_sasa ?? 0) * 100)}%)` : "–", "Solvent-accessible surface area, % of maximum for this residue"],
+    ["Contacts", f.n_contacts ? `${f.n_contacts}: ${f.contacts.join(", ")}` : "0", "Residues within 4.5 Å, excluding sequence neighbours"],
+  ];
+
+  return (
+    <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+      {rows.map(([k, v, tip]) => (
+        <React.Fragment key={k}>
+          <span className="font-semibold text-slate-600" title={tip}>{k}</span>
+          <span className={low && ["Phi / Psi / Omega", "SASA", "Contacts"].includes(k) ? "text-slate-400" : ""}>{v}</span>
+        </React.Fragment>
+      ))}
+    </div>
+  );
+}
+
 export default function SiteDataTable({ data, sequence, isLoading }: SiteDataTableProps) {
   const [globalFilter, setGlobalFilter] = useState("");
   const [popup, setPopup] = useState<{ site: any; x: number; y: number } | null>(null);
   const selectedPosition = useDashboardStore((s) => s.selectedPosition);
   const setSelectedPosition = useDashboardStore((s) => s.setSelectedPosition);
+  const [selectedSiteId, setSelectedSiteId] = useState<number | null>(null);
   const [ptmFilter, setPtmFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
 
@@ -43,6 +96,13 @@ export default function SiteDataTable({ data, sequence, isLoading }: SiteDataTab
     window.addEventListener("mouseup", onUp);
   };
 
+  const cleanSources = (raw?: string | null) =>
+    (raw ?? "")
+      .split(",")
+      .map((x) => x.trim())
+      .filter((x) => x && x !== "PTMKB")
+      .join(", ") || "N/A";
+
   const columns = useMemo<ColumnDef<any, any>[]>(() => [
     { header: "Pos", accessorKey: "position" },
     { header: "Res", accessorKey: "target_residue" },
@@ -55,10 +115,10 @@ export default function SiteDataTable({ data, sequence, isLoading }: SiteDataTab
         const ps = [...(s.propensity_scores ?? [])].sort((a, b) => b.evidence_score - a.evidence_score);
         if (!ps.length) return "N/A";
         const top = ps[0].enzyme?.enzyme_name ?? "N/A";
-        return ps.length > 1 ? `${top} +${ps.length - 1}` : top;
+        return ps.length > 1 ? `${top} (+${ps.length - 1})` : top;
       },
     },
-    { id: "source", header: "Source", accessorFn: (s) => cleanSources(s.raw_sources) },
+    // { id: "source", header: "Source", accessorFn: (s) => cleanSources(s.raw_sources) },
     {
       id: "evidence_score",
       header: "Evidence Score",
@@ -116,13 +176,6 @@ export default function SiteDataTable({ data, sequence, isLoading }: SiteDataTab
     );
   };
 
-  const cleanSources = (raw?: string | null) =>
-    (raw ?? "")
-      .split(",")
-      .map((x) => x.trim())
-      .filter((x) => x && x !== "PTMKB")
-      .join(", ") || "N/A";
-
   const enzymeList = (s: any) =>
     (s.propensity_scores ?? [])
       .map((p: any) => p.enzyme?.enzyme_name)
@@ -156,6 +209,11 @@ export default function SiteDataTable({ data, sequence, isLoading }: SiteDataTab
       );
     });
   };
+
+  const selSite = (data ?? []).find((s: any) => s.site_id === selectedSiteId);
+  const exactSelection = !!selSite && selSite.position === selectedPosition;
+  const isSelected = (s: any) =>
+   exactSelection ? s.site_id === selectedSiteId : s.position === selectedPosition;
 
   return (
     <div className="flex flex-col h-full bg-white relative">
@@ -207,6 +265,7 @@ export default function SiteDataTable({ data, sequence, isLoading }: SiteDataTab
                 key={row.id}
                 onClick={(e) => {
                   setSelectedPosition(row.original.position);
+                  setSelectedSiteId(row.original.site_id);
                   setPopup((prev) => {
                     if (prev) return { ...prev, site: row.original }; // keep position + size
                     const W = 600, H = 640;
@@ -215,7 +274,7 @@ export default function SiteDataTable({ data, sequence, isLoading }: SiteDataTab
                     return { site: row.original, x, y };
                   });
                 }}
-                className={`border-b border-slate-100 hover:bg-indigo-50 cursor-pointer transition-colors ${selectedPosition === row.original.position ? "bg-indigo-100" : ""
+                className={`border-b border-slate-100 hover:bg-indigo-50 cursor-pointer transition-colors ${isSelected(row.original) ? "bg-indigo-100" : ""
                   }`}
               >
                 {row.getVisibleCells().map(cell => (
@@ -275,12 +334,7 @@ export default function SiteDataTable({ data, sequence, isLoading }: SiteDataTab
                   ["PTM", <>{s.ptm?.ptm_type} <span className="text-slate-500">({s.target_residue}{s.position})</span></>],
                   ["Status", s.curation_status],
                   ["Evidence Codes", <span className="text-blue-500">{s.eco_codes || "N/A"}</span>],
-                  ["Neighborhood", (
-                    <div className="flex flex-col gap-0.5">
-                      <span><strong>Hydrophobicity:</strong> {s.neighborhood?.hydrophobicity ?? "N/A"}</span>
-                      <span><strong>Net charge:</strong> {s.neighborhood?.net_charge ?? "N/A"}</span>
-                    </div>
-                  )],
+                  // ["Features", <ResidueFeatures uniprotId={s.uniprot_id} position={s.position} ptmType={s.ptm?.ptm_type} />],
                 ].map(([label, val], i, arr) => (
                   <div key={i} className={`grid grid-cols-12 ${i < arr.length - 1 ? "border-b border-slate-100" : ""}`}>
                     <div className="col-span-4 bg-slate-50 p-2.5 font-bold text-slate-600 text-right border-r border-slate-200">{label}</div>

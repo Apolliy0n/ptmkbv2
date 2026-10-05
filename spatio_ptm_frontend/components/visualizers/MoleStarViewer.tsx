@@ -14,6 +14,7 @@ import { Script } from 'molstar/lib/mol-script/script';
 import { StructureSelection, StructureElement, StructureProperties } from 'molstar/lib/mol-model/structure';
 import { Color } from 'molstar/lib/mol-util/color';
 import { useDashboardStore } from '../../lib/store';
+import ResidueSidebar from './ResidueSidebar';
 import 'molstar/build/viewer/molstar.css';
 
 const PTM_COLORS: Record<string, number> = {
@@ -46,6 +47,7 @@ export default function MolstarViewer({ uniprotId, sites }: Props) {
   const pluginRef = useRef<PluginUIContext | null>(null);
   const siteRefs = useRef<string[]>([]);
   const [ready, setReady] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const selectedPosition = useDashboardStore((s) => s.selectedPosition);
   const setSelectedPosition = useDashboardStore((s) => s.setSelectedPosition);
@@ -56,6 +58,7 @@ export default function MolstarViewer({ uniprotId, sites }: Props) {
     let disposed = false;
     let plugin: PluginUIContext | null = null;
     let sub: { unsubscribe: () => void } | null = null;
+    let lsub: { unsubscribe: () => void } | null = null;
 
     const target = document.createElement('div');
     target.style.width = '100%';
@@ -71,6 +74,7 @@ export default function MolstarViewer({ uniprotId, sites }: Props) {
       if (disposed) { p.dispose(); return; }
       plugin = p;
       pluginRef.current = p;
+      lsub = p.layout.events.updated.subscribe(() => setExpanded(!!p.layout.state.isExpanded));
 
       try {
         const res = await fetch(`https://alphafold.ebi.ac.uk/api/prediction/${uniprotId}`);
@@ -100,6 +104,8 @@ export default function MolstarViewer({ uniprotId, sites }: Props) {
             const loc = StructureElement.Location.create(loci.structure);
             StructureElement.Loci.getFirstLocation(loci, loc);
             setSelectedPosition(StructureProperties.residue.label_seq_id(loc));
+          } else {
+            setSelectedPosition(null); // click on empty space
           }
         });
         console.log("4 preset ok");
@@ -115,6 +121,8 @@ export default function MolstarViewer({ uniprotId, sites }: Props) {
       disposed = true;
       setReady(false);
       sub?.unsubscribe();
+      lsub?.unsubscribe();
+      setExpanded(false);
       siteRefs.current = [];
       pluginRef.current = null;
       plugin?.dispose();
@@ -181,13 +189,18 @@ export default function MolstarViewer({ uniprotId, sites }: Props) {
 
       const sel = Script.getStructureSelection(residueExpr([selectedPosition]), data);
       const loci = StructureSelection.toLociWithSourceUnits(sel);
-      if (StructureElement.Loci.isEmpty(loci)) return;
+      if (StructureElement.Loci.isEmpty(loci)) { setSelectedPosition(null); return; }
       p.managers.interactivity.lociSelects.select({ loci });
       p.managers.camera.focusLoci(loci);
     } catch (err) {
       console.error("Focus failed:", err);
     }
-  }, [ready, selectedPosition]);
+  }, [ready, selectedPosition, setSelectedPosition]);
 
-  return <div ref={hostRef} className="w-full h-full relative rounded-lg" />;
+  return (
+    <div className="w-full h-full relative rounded-lg">
+      <div ref={hostRef} className="w-full h-full" />
+      <ResidueSidebar uniprotId={uniprotId} sites={sites} expanded={expanded} />
+    </div>
+  );
 }

@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { useProteinBase, useProteinSites } from "../../../hooks/useProteinData";
 import SiteDataTable from "../../../components/tables/SiteDataTable";
 import InfoTooltip from "../../../components/ui/InfoTooltip";
+import ProteinFeatures from "../../../components/ui/ProteinFeatures";
 
 const MolstarViewer = dynamic(
   () => import("../../../components/visualizers/MoleStarViewer"),
@@ -45,6 +46,11 @@ export default function ProteinDashboard({ params }: ProteinDashboardProps) {
         </p>
       </div>
 
+      <div className="bg-white p-4 border border-slate-200 rounded-xl shadow-sm">
+        <h3 className="text-sm font-bold text-slate-600 mb-3">Protein Features</h3>
+        <ProteinFeatures uniprotId={uniprotId} />
+      </div>
+
       {/* 1D Sequence */}
       <div className="w-full">
         <h3 className="text-xl font-bold mb-3 text-slate-700 flex items-center gap-2">
@@ -56,7 +62,7 @@ export default function ProteinDashboard({ params }: ProteinDashboardProps) {
       </div>
 
       {/* 3D & Data Table */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 h-auto">
+      <div className="grid grid-cols-1 xl:grid-cols-[1.25fr_1fr] gap-8 h-auto">
 
         {/* WebGL Canvas */}
         <div className="flex flex-col h-[650px]">
