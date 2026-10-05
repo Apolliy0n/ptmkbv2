@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useMemo } from "react";
 import {
-  useReactTable, getCoreRowModel, getSortedRowModel, getFilteredRowModel, flexRender, ColumnDef
+  useReactTable, getCoreRowModel, getSortedRowModel, getFilteredRowModel, flexRender, ColumnDef, SortingState
 } from "@tanstack/react-table";
 import InfoTooltip from "../ui/InfoTooltip";
 import { useDashboardStore } from "../../lib/store";
@@ -65,7 +65,11 @@ function ResidueFeatures({
 }
 
 export default function SiteDataTable({ data, sequence, isLoading }: SiteDataTableProps) {
-  const [globalFilter, setGlobalFilter] = useState("");
+  // Initialize sorting state to sort by position ascending by default
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "position", desc: false },
+  ]);
+  
   const [popup, setPopup] = useState<{ site: any; x: number; y: number } | null>(null);
   const selectedPosition = useDashboardStore((s) => s.selectedPosition);
   const setSelectedPosition = useDashboardStore((s) => s.setSelectedPosition);
@@ -151,12 +155,11 @@ export default function SiteDataTable({ data, sequence, isLoading }: SiteDataTab
   const table = useReactTable({
     data: filteredData,
     columns,
-    state: { globalFilter },
-    onGlobalFilterChange: setGlobalFilter,
+    state: { sorting },
+    onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    initialState: { sorting: [{ id: "evidence_score", desc: true }] },
   });
 
   const renderLocalSequence = (pos: number) => {
@@ -213,37 +216,28 @@ export default function SiteDataTable({ data, sequence, isLoading }: SiteDataTab
   const selSite = (data ?? []).find((s: any) => s.site_id === selectedSiteId);
   const exactSelection = !!selSite && selSite.position === selectedPosition;
   const isSelected = (s: any) =>
-   exactSelection ? s.site_id === selectedSiteId : s.position === selectedPosition;
+    exactSelection ? s.site_id === selectedSiteId : s.position === selectedPosition;
 
   return (
     <div className="flex flex-col h-full bg-white relative">
 
-      <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-col gap-2">
-        <input
-          type="text"
-          value={globalFilter ?? ""}
-          onChange={(e) => setGlobalFilter(e.target.value)}
-          placeholder="Search modifications, enzymes, evidence..."
-          className="w-full p-2.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        />
-        <div className="flex gap-2">
-          <select
-            value={ptmFilter}
-            onChange={(e) => setPtmFilter(e.target.value)}
-            className="flex-1 p-2 text-sm border border-slate-300 rounded-lg bg-white"
-          >
-            <option value="">All PTM types</option>
-            {ptmOptions.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="flex-1 p-2 text-sm border border-slate-300 rounded-lg bg-white"
-          >
-            <option value="">All statuses</option>
-            {statusOptions.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
-        </div>
+      <div className="p-4 border-b border-slate-200 bg-slate-50 flex gap-2">
+        <select
+          value={ptmFilter}
+          onChange={(e) => setPtmFilter(e.target.value)}
+          className="flex-1 p-2.5 text-sm border border-slate-300 rounded-lg bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        >
+          <option value="">All PTM types</option>
+          {ptmOptions.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="flex-1 p-2.5 text-sm border border-slate-300 rounded-lg bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        >
+          <option value="">All statuses</option>
+          {statusOptions.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
       </div>
 
       <div className="flex-1 overflow-auto px-4 pb-4">
@@ -252,8 +246,20 @@ export default function SiteDataTable({ data, sequence, isLoading }: SiteDataTab
             {table.getHeaderGroups().map(headerGroup => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map(header => (
-                  <th key={header.id} className="p-3 font-semibold text-slate-700 border-b border-slate-300 bg-slate-100">
-                    {flexRender(header.column.columnDef.header, header.getContext())}
+                  <th 
+                    key={header.id} 
+                    onClick={header.column.getToggleSortingHandler()}
+                    className="p-3 font-semibold text-slate-700 border-b border-slate-300 bg-slate-100 cursor-pointer select-none hover:bg-slate-200 transition-colors"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                      <span className="text-indigo-500 text-xs w-3">
+                        {{
+                          asc: "▲",
+                          desc: "▼",
+                        }[header.column.getIsSorted() as string] ?? null}
+                      </span>
+                    </div>
                   </th>
                 ))}
               </tr>
