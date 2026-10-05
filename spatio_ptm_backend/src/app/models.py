@@ -78,6 +78,7 @@ class Site(Base):
 
     raw_sources: Mapped[Optional[str]] = mapped_column(String(255))
     eco_codes: Mapped[Optional[str]] = mapped_column(Text)
+    evidence_ids: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 

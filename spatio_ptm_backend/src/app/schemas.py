@@ -89,6 +89,7 @@ class SiteBase(BaseModel):
     curation_status: CurationStatusEnum
     raw_sources: Optional[str] = None
     eco_codes: Optional[str] = None
+    evidence_ids: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 
