@@ -20,9 +20,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         {/* Global PTMKB Footer */}
         <footer className="w-full bg-[#1e293b] text-slate-400 py-8 mt-12 text-sm text-center border-t border-slate-700">
-          <div className="max-w-7xl mx-auto px-6 flex flex-col items-center justify-center gap-2">
-            <p className="font-semibold text-slate-300">© 2026 Perceptron PTMKB. All rights reserved.</p>
-            <p>Developed at the Lahore University of Management Sciences (LUMS).</p>
+          <div className="max-w-7xl mx-auto px-6 flex flex-col items-center justify-center gap-1.5">
+            <p>
+              <span className="text-blue-500">© 2026 BIRL</span> — This website is free and open to all users and there is no login requirement.
+            </p>
+            <p>Biomedical Informatics & Engineering Research Laboratory, Lahore University of Management Sciences</p>
+            <p>DHA, Lahore, Pakistan, +92 (42) 3560 8352</p>
           </div>
         </footer>
       </body>
